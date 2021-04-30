@@ -1,0 +1,6 @@
+{
+  "HostPort": "localhost:22"
+  "HostKey": "localhost ecdsa-sha2-nistp256 xxxxx",
+  "User": "user",
+  "KeyFile": "~/.ssh/id_ecdsa",
+}
