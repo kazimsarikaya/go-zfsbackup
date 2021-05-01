@@ -19,10 +19,12 @@ package zfsbackup
 import (
 	"compress/gzip"
 	"encoding/json"
+	"fmt"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"io"
 	"io/ioutil"
+	"os"
 )
 
 var _ = Describe("Remote Methods Tests", func() {
@@ -42,7 +44,7 @@ var _ = Describe("Remote Methods Tests", func() {
 		Describe("Test without input", func() {
 			It("Should be succeed", func() {
 				outr, outw := io.Pipe()
-				err := SendInput2Command(remoteConfig, "echo hi", nil, outw)
+				err := SendInput2Command(&remoteConfig, "echo hi", nil, outw)
 				Expect(err).To(BeNil(), "error occured")
 				outb, err := io.ReadAll(outr)
 				Expect(err).To(BeNil(), "error occured")
@@ -61,12 +63,78 @@ var _ = Describe("Remote Methods Tests", func() {
 					inw.Close()
 				}()
 				outr, outw := io.Pipe()
-				err := SendInput2Command(remoteConfig, "gzip -d -c -", inr, outw)
+				err := SendInput2Command(&remoteConfig, "gzip -d -c -", inr, outw)
 				Expect(err).To(BeNil(), "error occured")
 				outb, err := io.ReadAll(outr)
 				Expect(err).To(BeNil(), "error occured")
 				out := string(outb)
 				Expect(out).To(Equal("hi"), "output different")
+			})
+		})
+
+		Describe("Test file existence at remote", func() {
+			It("Should be succeed", func() {
+				f, err := os.CreateTemp(os.TempDir(), "file-exists.*.txt")
+				Expect(err).To(BeNil(), "cannot create test file")
+				defer os.Remove(f.Name()) // clean up
+				found, err := is_file_exists_at_remote(&remoteConfig, f.Name())
+				Expect(err).To(BeNil(), "error occured while testing")
+				Expect(found).To(BeTrue(), "file not found")
+				found, err = is_file_exists_at_remote(&remoteConfig, fmt.Sprintf("%s/not-exists-file", os.TempDir()))
+				Expect(err).To(BeNil(), "error occured while testing")
+				Expect(found).NotTo(BeTrue(), "file not found")
+			})
+		})
+
+		Describe("Test file existence at remote", func() {
+			It("Should be succeed", func() {
+				f, err := os.CreateTemp(os.TempDir(), "file-exists.*.txt")
+				Expect(err).To(BeNil(), "cannot create test file")
+				defer os.Remove(f.Name()) // clean up
+				found, err := is_file_exists_at_remote(&remoteConfig, f.Name())
+				Expect(err).To(BeNil(), "error occured while testing")
+				Expect(found).To(BeTrue(), "file not found")
+				found, err = is_file_exists_at_remote(&remoteConfig, fmt.Sprintf("%s/not-exists-file", os.TempDir()))
+				Expect(err).To(BeNil(), "error occured while testing")
+				Expect(found).NotTo(BeTrue(), "file not found")
+			})
+		})
+
+		Describe("Test remote file's sha256", func() {
+			It("Should be succeed", func() {
+				f, err := os.CreateTemp(os.TempDir(), "remote-sha256-test.*.txt")
+				Expect(err).To(BeNil(), "cannot create test file")
+				defer os.Remove(f.Name()) // clean up
+				_, err = f.Write([]byte("test content\n"))
+				Expect(err).To(BeNil(), "cannot write test file")
+				err = f.Close()
+				Expect(err).To(BeNil(), "cannot close test file")
+				hash, err := get_file_hash_at_remote(&remoteConfig, f.Name())
+				Expect(err).To(BeNil(), "cannot calculate hash of test file")
+				Expect(hash).To(Equal("a1fff0ffefb9eace7230c24e50731f0a91c62f9cefdfe77121c2f607125dffae"), "verify of hash failed")
+			})
+		})
+
+		Describe("Test remote sending file", func() {
+			It("Should be succeed", func() {
+				f_src, err := os.CreateTemp(os.TempDir(), "remote-send-test-src.*.txt")
+				Expect(err).To(BeNil(), "cannot create test file")
+				defer os.Remove(f_src.Name()) // clean up
+				_, err = f_src.Write([]byte("test content\n"))
+				Expect(err).To(BeNil(), "cannot write test file")
+				err = f_src.Close()
+				Expect(err).To(BeNil(), "cannot close test file")
+
+				f_dst, err := os.CreateTemp(os.TempDir(), "remote-send-test-dst.*.txt")
+				Expect(err).To(BeNil(), "cannot create test file")
+				defer os.Remove(f_dst.Name()) // clean up
+
+				err = send_file_to_remote(&remoteConfig, f_src.Name(), f_dst.Name())
+				Expect(err).To(BeNil(), "cannot calculate hash of test file")
+
+				hash, err := get_file_hash_at_remote(&remoteConfig, f_dst.Name())
+				Expect(err).To(BeNil(), "cannot calculate hash of test file")
+				Expect(hash).To(Equal("a1fff0ffefb9eace7230c24e50731f0a91c62f9cefdfe77121c2f607125dffae"), "verify of hash failed")
 			})
 		})
 	})

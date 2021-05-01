@@ -3,4 +3,5 @@
   "HostKey": "localhost ecdsa-sha2-nistp256 xxxxx",
   "User": "user",
   "KeyFile": "~/.ssh/id_ecdsa",
+  "ExecutablePath": "/usr/local/bin/zfsbackup"
 }

@@ -1,3 +1,5 @@
+// +build linux
+
 /*
 Copyright 2021 Kazım SARIKAYA
 
@@ -17,22 +19,31 @@ limitations under the License.
 package zfsbackup
 
 import (
-	"flag"
+	"encoding/json"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	klog "k8s.io/klog/v2"
-	"os"
-	"testing"
+	"io/ioutil"
 )
 
-func init() {
-	klog.InitFlags(nil)
-	flag.Set("logtostderr", "true")
-	klog.SetOutput(os.Stdout)
-	SetOwnExecutable("bin/zfsbackup")
-}
+var _ = Describe("Send Methods Tests", func() {
 
-func TestBackupTool(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "ZFS Backup Tool Test Suite")
-}
+	Context("Send Test", func() {
+
+		var remoteConfig RemoteConfig
+
+		BeforeEach(func() {
+			data, err := ioutil.ReadFile("./tests/remote_config_test.json")
+			Expect(err).To(BeNil(), "cannot read remote test config")
+
+			err = json.Unmarshal(data, &remoteConfig)
+			Expect(err).To(BeNil(), "cannot parse remote test config")
+		})
+
+		Describe("Test sending executable", func() {
+			It("Should be succeed", func() {
+				err := SendHandler(&remoteConfig, nil, nil)
+				Expect(err).To(BeNil(), "cannot send executable")
+			})
+		})
+	})
+})

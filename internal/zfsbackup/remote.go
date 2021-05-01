@@ -17,20 +17,24 @@ limitations under the License.
 package zfsbackup
 
 import (
+	"errors"
+	"fmt"
 	"golang.org/x/crypto/ssh"
 	"io"
 	"io/ioutil"
 	klog "k8s.io/klog/v2"
+	"os"
 )
 
 type RemoteConfig struct {
-	HostPort string
-	HostKey  string
-	User     string
-	KeyFile  string
+	HostPort       string
+	HostKey        string
+	User           string
+	KeyFile        string
+	ExecutablePath string
 }
 
-func SendInput2Command(remoteConfig RemoteConfig, cmd string, in io.ReadCloser, out io.WriteCloser) error {
+func SendInput2Command(remoteConfig *RemoteConfig, cmd string, in io.ReadCloser, out io.WriteCloser) error {
 	klog.V(8).Infof("SendInput2Command called")
 	_, _, hostPubKey, _, _, err := ssh.ParseKnownHosts([]byte(remoteConfig.HostKey))
 	if err != nil {
@@ -124,4 +128,66 @@ func SendInput2Command(remoteConfig RemoteConfig, cmd string, in io.ReadCloser, 
 	klog.V(5).Infof("ssh command ended")
 
 	return nil
+}
+
+func is_file_exists_at_remote(rcfg *RemoteConfig, file string) (bool, error) {
+	outr, outw := io.Pipe()
+	err := SendInput2Command(rcfg, fmt.Sprintf("[[ -f %s ]] && echo -n found || echo -n notfound", file), nil, outw)
+	if err != nil {
+		klog.V(5).Error(err, "cannot verify file existance")
+		return false, err
+	}
+	outb, err := io.ReadAll(outr)
+	if err != nil {
+		klog.V(5).Error(err, "cannot verify file existance")
+		return false, err
+	}
+
+	out := string(outb)
+	if out == "found" {
+		return true, nil
+	}
+	return false, nil
+}
+
+func send_file_to_remote(rcfg *RemoteConfig, src_file, dst_file string) error {
+	klog.V(5).Infof("sending file %s", src_file)
+	fi, err := os.Stat(src_file)
+	if err != nil {
+		klog.V(5).Error(err, "cannot stat source file for perms")
+		return err
+	}
+	klog.V(9).Infof("source file's permision is %o", fi.Mode().Perm())
+	file_r, err := os.Open(src_file)
+	if err != nil {
+		klog.V(5).Error(err, "cannot open for reading file")
+		return err
+	}
+	err = SendInput2Command(rcfg, fmt.Sprintf("cat > %s; chmod %o %s", dst_file, fi.Mode().Perm(), dst_file), file_r, nil)
+	if err != nil {
+		klog.V(5).Error(err, "cannot send file")
+		return err
+	}
+	return nil
+}
+
+func get_file_hash_at_remote(rcfg *RemoteConfig, file string) (string, error) {
+	klog.V(9).Infof("calculate remote file %s sha256 sum", file)
+	outr, outw := io.Pipe()
+	err := SendInput2Command(rcfg, fmt.Sprintf("openssl sha256 -r  %s", file), nil, outw)
+	if err != nil {
+		klog.V(5).Error(err, "cannot calculate remote file's sha256 sum")
+		return "", err
+	}
+	outb, err := io.ReadAll(outr)
+	if err != nil {
+		klog.V(5).Error(err, "cannot read remote file's sha256 sum")
+		return "", err
+	}
+	outs := string(outb)
+	if len(outs) >= 64 {
+		dest_hash := outs[:64]
+		return dest_hash, nil
+	}
+	return "", errors.New("remote hash calculation error")
 }

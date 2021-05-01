@@ -22,6 +22,7 @@ import (
 	"fmt"
 	. "github.com/kazimsarikaya/go-zfsbackup/cmd/recv"
 	. "github.com/kazimsarikaya/go-zfsbackup/cmd/send"
+	"github.com/kazimsarikaya/go-zfsbackup/internal/zfsbackup"
 	"github.com/spf13/cobra"
 	cobradoc "github.com/spf13/cobra/doc"
 	"github.com/spf13/pflag"
@@ -107,6 +108,9 @@ func init() {
 
 	klog.InitFlags(nil)
 
+	ex, _ := os.Executable()
+	zfsbackup.SetOwnExecutable(ex)
+
 	rootCmd.PersistentFlags().StringP("config", "", "", "configuration file")
 	pflag.CommandLine.AddGoFlag(flag.CommandLine.Lookup("v"))
 	pflag.CommandLine.AddGoFlag(flag.CommandLine.Lookup("logtostderr"))
@@ -145,14 +149,20 @@ func initializeConfig(cmd *cobra.Command) error {
 	}
 
 	if configFile != "" {
-		klog.V(6).Infof("a config file given as parameter: %v", configFile)
+		configType := filepath.Ext(configFile)
+		if configType[0] == '.' {
+			configType = configType[1:]
+		}
+		klog.V(6).Infof("a config file given as parameter: %v type: %v", configFile, configType)
 		if r, err := os.Open(configFile); err == nil {
+			v.SetConfigType(configType)
 			err = v.MergeConfig(r)
 			if err != nil {
 				klog.V(6).Error(err, "cannot merge config file")
 				return err
 			}
 			r.Close()
+			klog.V(6).Infof("config merged from %s", configFile)
 		} else {
 			klog.V(6).Error(err, "cannot open config file")
 			return err

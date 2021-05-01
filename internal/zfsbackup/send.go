@@ -17,11 +17,38 @@ limitations under the License.
 package zfsbackup
 
 import (
+	"errors"
 	klog "k8s.io/klog/v2"
 )
 
-func SendHandler() error {
+func SendHandler(rcfg *RemoteConfig, srcdataset, dstdataset *string) error {
 	klog.V(5).Infof("inside send handler")
+	found, err := is_file_exists_at_remote(rcfg, rcfg.ExecutablePath)
+	if err != nil {
+		return nil
+	}
+	if !found {
+		err = send_file_to_remote(rcfg, ownExecutable, rcfg.ExecutablePath)
+		if err != nil {
+			return err
+		}
+	} else {
+		dest_hash, err := get_file_hash_at_remote(rcfg, rcfg.ExecutablePath)
+		if err != nil {
+			return err
+		}
+
+		source_hash, err := get_local_hash_of_file(ownExecutable)
+		if err != nil {
+			return err
+		}
+
+		klog.V(5).Infof("source_hash: %s dest_hash: %s", source_hash, dest_hash)
+		if dest_hash != source_hash {
+			return errors.New("source and destination executables different")
+		}
+		klog.V(5).Infof("source and destination executables are same")
+	}
 
 	klog.V(5).Infof("ending send handler")
 	return nil

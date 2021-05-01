@@ -17,22 +17,32 @@ limitations under the License.
 package zfsbackup
 
 import (
-	"flag"
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
+	"crypto/sha256"
+	"fmt"
+	"io"
 	klog "k8s.io/klog/v2"
 	"os"
-	"testing"
 )
 
-func init() {
-	klog.InitFlags(nil)
-	flag.Set("logtostderr", "true")
-	klog.SetOutput(os.Stdout)
-	SetOwnExecutable("bin/zfsbackup")
+var ownExecutable string
+
+func SetOwnExecutable(ex string) {
+	ownExecutable = ex
 }
 
-func TestBackupTool(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "ZFS Backup Tool Test Suite")
+func get_local_hash_of_file(file string) (string, error) {
+	file_r, err := os.Open(file)
+	if err != nil {
+		klog.V(5).Error(err, "cannot open local file for hash256 sum")
+		return "", err
+	}
+
+	h := sha256.New()
+	if _, err := io.Copy(h, file_r); err != nil {
+		klog.V(5).Error(err, "cannot calculate hash of local file")
+		return "", err
+	}
+
+	source_hash := fmt.Sprintf("%x", h.Sum(nil))
+	return source_hash, nil
 }
