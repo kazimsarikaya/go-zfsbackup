@@ -34,7 +34,7 @@ func ReceiveHandler() error {
 		cmd := scanner.Text()
 		klog.V(9).Infof("received command %s", cmd)
 		if cmd == "END" {
-			fmt.Printf("OK\n")
+			fmt.Printf("FIN\n")
 			klog.V(5).Infof("stopping recv")
 			break
 		} else if strings.HasPrefix(cmd, "START") {

@@ -34,7 +34,7 @@ type RemoteConfig struct {
 	ExecutablePath string
 }
 
-func SendInput2Command(remoteConfig *RemoteConfig, cmd string, in io.ReadCloser, out io.WriteCloser) error {
+func SendInput2Command(remoteConfig *RemoteConfig, cmd string, in io.Reader, out io.WriteCloser) error {
 	klog.V(8).Infof("SendInput2Command called")
 	_, _, hostPubKey, _, _, err := ssh.ParseKnownHosts([]byte(remoteConfig.HostKey))
 	if err != nil {

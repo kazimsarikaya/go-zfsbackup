@@ -60,17 +60,23 @@ initited by send command`,
 			}
 			klog.V(9).Infof("executable-path: %v", executablePath)
 
-			src_ds, err := cmd.Flags().GetString("source-dataset")
+			src_ds, err := cmd.Flags().GetString("source")
 			if err != nil {
 				return err
 			}
-			klog.V(9).Infof("source-dataset: %v", src_ds)
+			klog.V(9).Infof("source: %v", src_ds)
 
-			dst_ds, err := cmd.Flags().GetString("destination-dataset")
+			dst_ds, err := cmd.Flags().GetString("destination")
 			if err != nil {
 				return err
 			}
-			klog.V(9).Infof("destination-dataset: %v", dst_ds)
+			klog.V(9).Infof("destination: %v", dst_ds)
+
+			bs, err := cmd.Flags().GetInt("buffer")
+			if err != nil {
+				return err
+			}
+			klog.V(9).Infof("buffer: %v", bs)
 
 			rcfg := &zfsbackup.RemoteConfig{
 				HostPort:       hostPort,
@@ -80,7 +86,7 @@ initited by send command`,
 				ExecutablePath: executablePath,
 			}
 			klog.V(5).Infof("Send started")
-			return zfsbackup.SendHandler(rcfg, &src_ds, &dst_ds)
+			return zfsbackup.SendHandler(rcfg, &src_ds, &dst_ds, bs)
 		},
 	}
 )
@@ -91,7 +97,8 @@ func GetSendCmd() *cobra.Command {
 	sendCmd.Flags().StringP("user", "", "root", "Destination root user")
 	sendCmd.Flags().StringP("key-file", "", "/root/.ssh/id_ecdsa", "Users ssh private key")
 	sendCmd.Flags().StringP("executable-path", "", "/usr/local/sbin/zfsbackup", "Destination zfs executable path")
-	sendCmd.Flags().StringP("source-dataset", "s", "", "Source zfs dataset to send for backup")
-	sendCmd.Flags().StringP("destination-dataset", "d", "", "Destination zfs dataset for receive backup")
+	sendCmd.Flags().StringP("source", "s", "", "Source zfs dataset to send for backup")
+	sendCmd.Flags().StringP("destination", "d", "", "Destination zfs dataset for receive backup")
+	sendCmd.Flags().IntP("buffer", "", 128*1024, "Buffer size")
 	return sendCmd
 }

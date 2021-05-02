@@ -24,6 +24,7 @@ import (
 	"net"
 	"os"
 	"strings"
+	"time"
 )
 
 type bufferedReceviver struct {
@@ -55,10 +56,18 @@ func (br *bufferedReceviver) stop() {
 }
 
 func (br *bufferedReceviver) accept() error {
+	timer := time.NewTimer(60 * time.Second)
+	go func() {
+		<-timer.C
+		klog.V(5).Infof("any connection comed")
+		br.listener.Close()
+	}()
 	conn, err := br.listener.Accept()
 	if err != nil {
 		klog.V(5).Error(err, "cannot accept connection")
+		return err
 	}
+	timer.Stop()
 
 	if strings.HasPrefix(br.destination, "file:") {
 		d := br.destination[5:]
